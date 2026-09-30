@@ -197,8 +197,9 @@ function otherSide(b) {
 }
 // my risk / my win on a bet, from whichever side I'm on
 function myTerms(b) {
-  return b.poster === me.id ? { side: label(b.market, b.pick, b.point, b.odds), risk: b.stake, win: b.taker_risk }
-                            : { side: otherSide(b), risk: b.taker_risk, win: b.stake };
+  const posted = label(b.market, b.pick, b.point, b.odds), other = otherSide(b);
+  return b.poster === me.id ? { side: posted, theirs: other, risk: b.stake, win: b.taker_risk }
+                            : { side: other, theirs: posted, risk: b.taker_risk, win: b.stake };
 }
 
 // ---------- data ----------
@@ -347,7 +348,7 @@ function renderMine() {
   if (!me) { box.innerHTML = `<div class="empty">${configured ? "Sign in to see your bets." : "—"}</div>`; return; }
   const mine = bets.filter(b => (b.poster === me.id || b.taker === me.id) && lineById(b.line_id));
   if (!mine.length) { box.innerHTML = `<div class="empty">You haven't bet yet.</div>`; return; }
-  box.innerHTML = `<table><thead><tr><th class="l">Week</th><th class="l">Taker</th><th class="l">My pick</th><th class="l">Posted by</th><th>Risk</th><th>To win</th><th class="l">Status</th></tr></thead><tbody>` +
+  box.innerHTML = `<table><thead><tr><th class="l">Week</th><th class="l">Taker</th><th class="l">My pick</th><th class="l">Their pick</th><th class="l">Posted by</th><th>Risk</th><th>To win</th><th class="l">Status</th></tr></thead><tbody>` +
     mine.map(b => {
       const t = myTerms(b), l = lineById(b.line_id);
       let st;
@@ -357,7 +358,7 @@ function renderMine() {
       } else st = { open: `<span class="chip open">Waiting for a taker</span>`, matched: `<span class="chip matched">Matched</span>`,
                     cancelled: `<span class="chip">Cancelled</span>`, expired: `<span class="chip">Expired, not taken</span>`,
                     void: `<span class="chip" title="Matched after the game had started, so both stakes go back">Void</span>` }[b.status];
-      return `<tr><td class="l">${l.week}</td><td class="l">${b.taker ? esc(nameOf(b.taker)) : "—"}</td><td class="l pick">${esc(t.side)}</td>` +
+      return `<tr><td class="l">${l.week}</td><td class="l">${b.taker ? esc(nameOf(b.taker)) : "—"}</td><td class="l pick">${esc(t.side)}</td><td class="l">${esc(t.theirs)}</td>` +
         `<td class="l">${esc(nameOf(b.poster))}</td><td>${money(t.risk)}</td><td>${money(t.win)}</td><td class="l">${st}</td></tr>`;
     }).join("") + `</tbody></table>`;
 }
