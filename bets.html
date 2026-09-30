@@ -332,7 +332,7 @@ function renderOpen() {
   box.innerHTML = `<table><thead><tr><th class="l">Posted by</th><th class="l">Their pick</th><th>They risk</th><th class="l">Other side</th><th>You risk</th><th>You win</th><th></th></tr></thead><tbody>` +
     open.map(b => {
       const mine = b.poster === me.id, l = lineById(b.line_id);
-      return `<tr><td class="l">${esc(mine ? "You" : nameOf(b.poster))}<div class="sub">${esc(l.favorite)} vs ${esc(l.underdog)}</div></td>` +
+      return `<tr><td class="l">${esc(nameOf(b.poster))}</td>` +
         `<td class="l pick">${esc(label(b.market, b.pick, b.point, b.odds))}</td><td>${money(b.stake)}</td>` +
         `<td class="l pick">${esc(otherSide(b))}</td>` +
         (mine ? `<td class="muted">—</td><td class="muted">—</td>` : `<td>${money(b.taker_risk)}</td><td class="pos">${money(b.stake)}</td>`) +
@@ -347,9 +347,9 @@ function renderMine() {
   if (!me) { box.innerHTML = `<div class="empty">${configured ? "Sign in to see your bets." : "—"}</div>`; return; }
   const mine = bets.filter(b => (b.poster === me.id || b.taker === me.id) && lineById(b.line_id));
   if (!mine.length) { box.innerHTML = `<div class="empty">You haven't bet yet.</div>`; return; }
-  box.innerHTML = `<table><thead><tr><th class="l">Week</th><th class="l">My pick</th><th class="l">Against</th><th>Risk</th><th>To win</th><th class="l">Status</th></tr></thead><tbody>` +
+  box.innerHTML = `<table><thead><tr><th class="l">Week</th><th class="l">Taker</th><th class="l">My pick</th><th class="l">Posted by</th><th>Risk</th><th>To win</th><th class="l">Status</th></tr></thead><tbody>` +
     mine.map(b => {
-      const t = myTerms(b), l = lineById(b.line_id), opp = b.poster === me.id ? b.taker : b.poster;
+      const t = myTerms(b), l = lineById(b.line_id);
       let st;
       if (b.status === "settled") {
         const won = (b.result === "poster") === (b.poster === me.id);
@@ -357,8 +357,8 @@ function renderMine() {
       } else st = { open: `<span class="chip open">Waiting for a taker</span>`, matched: `<span class="chip matched">Matched</span>`,
                     cancelled: `<span class="chip">Cancelled</span>`, expired: `<span class="chip">Expired, not taken</span>`,
                     void: `<span class="chip" title="Matched after the game had started, so both stakes go back">Void</span>` }[b.status];
-      return `<tr><td class="l">${l.week}<div class="sub">${esc(l.favorite)} vs ${esc(l.underdog)}</div></td><td class="l pick">${esc(t.side)}</td>` +
-        `<td class="l">${opp ? esc(nameOf(opp)) : "—"}</td><td>${money(t.risk)}</td><td>${money(t.win)}</td><td class="l">${st}</td></tr>`;
+      return `<tr><td class="l">${l.week}</td><td class="l">${b.taker ? esc(nameOf(b.taker)) : "—"}</td><td class="l pick">${esc(t.side)}</td>` +
+        `<td class="l">${esc(nameOf(b.poster))}</td><td>${money(t.risk)}</td><td>${money(t.win)}</td><td class="l">${st}</td></tr>`;
     }).join("") + `</tbody></table>`;
 }
 
