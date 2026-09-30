@@ -136,6 +136,18 @@ tr.me { background: linear-gradient(90deg, var(--self-from), var(--self-to)); }
 .info-pop .findings { margin: 8px 0 0; padding-left: 16px; font-size: 12.5px; }
 .info-pop .findings li { margin: 5px 0; }
 .info-pop b { color: var(--text-primary); }
+/* bet slip window */
+.modal-back { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgb(3 6 20 / .72); backdrop-filter: blur(3px); }
+.modal-back[hidden] { display: none; }
+.modal { width: min(460px, 100%); max-height: calc(100vh - 32px); overflow: auto; background: var(--surface-1);
+  border: 1px solid var(--cyan); border-radius: 16px; box-shadow: 0 24px 70px rgb(0 0 0 / .65); }
+.modal .slip { margin: 0; border: 0; background: transparent; padding: 18px 20px 20px; }
+.modal .ctx { color: var(--text-muted); font-size: 12px; margin-bottom: 4px; }
+.modal .pick { font-size: 20px; }
+.modal .stake { width: 110px; font-size: 16px; }
+.modal .calc { font-size: 15px; }
+body.modal-open { overflow: hidden; }
 /* tabs */
 .tabs { display: flex; gap: 6px; margin: 26px 0 0; border-bottom: 1px solid var(--border); }
 .tab { border: 0; background: transparent; color: var(--text-secondary); font: 700 15px var(--display); padding: 10px 16px;
@@ -201,6 +213,9 @@ tr.me { background: linear-gradient(90deg, var(--self-from), var(--self-to)); }
   <div class="card tablewrap" id="ledger"></div>
 
 </main>
+<div class="modal-back" id="modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Bet slip" id="modal-body"></div>
+</div>
 <script>
 // Supabase project (the anon key is designed to be public; access rules live in the database)
 const SUPABASE_URL = "https://qrscinnfjzkbqcbxbgih.supabase.co";
@@ -324,6 +339,7 @@ function render() {
   renderBoard(lines.filter(l => l.week === week));
   renderProps();
   renderOpen(); renderLive(); renderMine(); renderLedger();
+  renderModal();
 }
 
 function renderAuth() {
@@ -361,20 +377,14 @@ function renderBoard(games) {
       priceBtn(l, "spread", l.underdog, pts(l.spread), "EVEN") + priceBtn(l, "total", "under", "U " + Number(l.total).toFixed(1), "EVEN") +
       priceBtn(l, "ml", l.underdog, "&nbsp;", odds(l.dog_ml)) + `</div>` +
       (open ? `<div class="offers"><b>${open}</b> open bet${open === 1 ? "" : "s"} on this game, below</div>` : "") +
-      (slip && slip.line === l.id ? slipHtml(l) : "") + `</div>`;
+      `</div>`;
   }).join("");
   board.querySelectorAll(".price").forEach(b => b.onclick = () => {
     const same = slip && slip.line === b.dataset.line && slip.market === b.dataset.market && slip.pick === b.dataset.pick;
-    slip = same ? null : { line: b.dataset.line, market: b.dataset.market, pick: b.dataset.pick, stake: slip?.stake ?? 5 };
-    renderBoard(games);
+    slip = same ? null : { line: b.dataset.line, market: b.dataset.market, pick: b.dataset.pick, stake: slip?.stake ?? pslip?.stake ?? 5 };
+    pslip = null;
+    render();
   });
-  if (slip && $("slip-stake")) {
-    const upd = () => { slip.stake = Number($("slip-stake").value) || 0; $("slip-calc").innerHTML = slipCalc(lineById(slip.line)); };
-    $("slip-stake").oninput = upd;
-    board.querySelectorAll(".quick").forEach(q => q.onclick = () => { $("slip-stake").value = q.dataset.v; upd(); });
-    $("slip-post").onclick = me ? postBet : signIn;
-    $("slip-close").onclick = () => { slip = null; renderBoard(games); };
-  }
 }
 function slipOdds(l) { return slip.market === "ml" ? (slip.pick === l.favorite ? l.fav_ml : l.dog_ml) : 100; }
 function slipPoint(l) { return slip.market === "total" ? l.total : slip.pick === l.favorite ? -l.spread : l.spread; }
@@ -386,7 +396,7 @@ function slipCalc(l) {
     `<span class="muted">Whoever takes ${esc(otherSide(mirror))} risks ${money(w)} to win ${money(s)}.</span>`;
 }
 function slipHtml(l) {
-  return `<div class="slip"><div class="pick">${esc(label(slip.market, slip.pick, slipPoint(l), slipOdds(l)))}</div>` +
+  return `<div class="slip"><div class="ctx">Week ${l.week} · ${esc(l.favorite)} vs ${esc(l.underdog)}</div><div class="pick">${esc(label(slip.market, slip.pick, slipPoint(l), slipOdds(l)))}</div>` +
     `<div class="row"><label class="f">Stake <input id="slip-stake" class="stake" type="number" min="1" max="100" step="1" value="${slip.stake}"></label>` +
     [5, 10, 20].map(v => `<button type="button" class="btn quick" data-v="${v}">$${v}</button>`).join("") + `</div>` +
     `<div class="calc" id="slip-calc">${slipCalc(l)}</div>` +
@@ -409,7 +419,6 @@ function renderProps() {
     const id = m.key + (m.pos || ""), open = expanded.has(id), shown = open ? offered : offered.slice(0, SHOW);
     const pr0 = all[0], closed = locked(pr0), final = all.some(pr => pr.final);
     const status = final ? `<span class="lock closed">Final</span>` : closed ? `<span class="lock closed">Locked</span>` : `<span class="lock">Locks ${when(pr0.locks_at)}</span>`;
-    const selIn = pslip && shown.some(pr => pr.id === pslip.prop);
     html[m.box] += `<div class="card prop"><div class="prop-h"><span class="t">${m.title}</span>${status}</div>` +
       shown.map(pr => `<div class="sel-row${pr.result === "won" ? " won" : ""}"><div><div class="n" title="${esc(pr.selection)}">${esc(pr.selection)}</div>` +
         (pr.owner ? `<div class="s">${esc(pr.owner)}</div>` : "") + `</div>` +
@@ -417,24 +426,18 @@ function renderProps() {
         `<button type="button" class="price${pslip && pslip.prop === pr.id ? " sel" : ""}" data-prop="${esc(pr.id)}"${closed ? " disabled" : ""}>` +
         `<span class="o">${odds(pr.yes_ml)}</span></button></div>`).join("") +
       (offered.length > SHOW ? `<button type="button" class="more-sel" data-more="${id}">${open ? "Show fewer" : `Show all ${offered.length}`}</button>` : "") +
-      (selIn ? propSlipHtml(propById(pslip.prop)) : "") + `</div>`;
+      `</div>`;
   }
   $("team-props").innerHTML = html["team-props"] || `<div class="card empty">No team props posted yet. They go up with the week's lines.</div>`;
   $("player-props").innerHTML = html["player-props"] || `<div class="card empty">No player props posted yet. They go up with the week's lines.</div>`;
   document.querySelectorAll("[data-prop]").forEach(b => b.onclick = () => {
     pslip = pslip && pslip.prop === b.dataset.prop ? null : { prop: b.dataset.prop, stake: pslip?.stake ?? slip?.stake ?? 5 };
-    renderProps();
+    slip = null;
+    render();
   });
   document.querySelectorAll("[data-more]").forEach(b => b.onclick = () => {
     expanded.has(b.dataset.more) ? expanded.delete(b.dataset.more) : expanded.add(b.dataset.more); renderProps();
   });
-  if (pslip && $("pslip-stake")) {
-    const upd = () => { pslip.stake = Number($("pslip-stake").value) || 0; $("pslip-calc").innerHTML = propSlipCalc(propById(pslip.prop)); };
-    $("pslip-stake").oninput = upd;
-    document.querySelectorAll(".pquick").forEach(q => q.onclick = () => { $("pslip-stake").value = q.dataset.v; upd(); });
-    $("pslip-post").onclick = me ? postPropBet : signIn;
-    $("pslip-close").onclick = () => { pslip = null; renderProps(); };
-  }
 }
 function propSlipCalc(pr) {
   const s = pslip.stake;
@@ -444,13 +447,33 @@ function propSlipCalc(pr) {
     `<span class="muted">Whoever takes ${esc(propLabel(pr, false, pr.no_ml))} risks ${money(w)} to win ${money(s)}.</span>`;
 }
 function propSlipHtml(pr) {
-  return `<div class="slip"><div class="pick">${esc(propLabel(pr, true, pr.yes_ml))}</div>` +
+  const what = pr.market === "top_player" ? `Top ${pr.pos}` : pr.market === "top_team" ? "Top scoring team" : "Lowest scoring team";
+  return `<div class="slip"><div class="ctx">Week ${pr.week} · ${what}</div><div class="pick">${esc(propLabel(pr, true, pr.yes_ml))}</div>` +
     `<div class="row"><label class="f">Stake <input id="pslip-stake" class="stake" type="number" min="1" max="100" step="1" value="${pslip.stake}"></label>` +
     [5, 10, 20].map(v => `<button type="button" class="btn quick pquick" data-v="${v}">$${v}</button>`).join("") + `</div>` +
     `<div class="calc" id="pslip-calc">${propSlipCalc(pr)}</div>` +
     `<div class="row"><button type="button" class="btn primary" id="pslip-post">${me ? "Post bet" : "Sign in with Google to bet"}</button>` +
     `<button type="button" class="btn quiet" id="pslip-close">Close</button></div></div>`;
 }
+
+// the bet slip opens as a window over the page; one bet at a time
+function renderModal() {
+  const back = $("modal"), l = slip && lineById(slip.line), pr = !l && pslip && propById(pslip.prop);
+  if (!l && !pr) { back.hidden = true; back.dataset.key = ""; document.body.classList.remove("modal-open"); return; }
+  const key = (l ? "l:" + slip.line + slip.market + slip.pick : "p:" + pslip.prop) + (me ? ":in" : ":out");
+  if (!back.hidden && back.dataset.key === key) return;  // already showing: don't wipe what's being typed
+  back.dataset.key = key;
+  $("modal-body").innerHTML = l ? slipHtml(l) : propSlipHtml(pr);
+  back.hidden = false; document.body.classList.add("modal-open");
+  const stake = $(l ? "slip-stake" : "pslip-stake"), calc = $(l ? "slip-calc" : "pslip-calc");
+  const upd = () => { (l ? slip : pslip).stake = Number(stake.value) || 0; calc.innerHTML = l ? slipCalc(l) : propSlipCalc(pr); };
+  stake.oninput = upd;
+  back.querySelectorAll(".quick").forEach(q => q.onclick = () => { stake.value = q.dataset.v; upd(); });
+  $(l ? "slip-post" : "pslip-post").onclick = me ? (l ? postBet : postPropBet) : signIn;
+  $(l ? "slip-close" : "pslip-close").onclick = closeSlip;
+  stake.focus(); stake.select();
+}
+function closeSlip() { slip = null; pslip = null; render(); }
 
 function renderOpen() {
   const box = $("open");
@@ -527,6 +550,8 @@ function renderLedger() {
 }
 
 // ---------- start ----------
+$("modal").addEventListener("click", e => { if (e.target === $("modal")) closeSlip(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("modal").hidden) closeSlip(); });
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
   tab = t.dataset.tab;
   try { localStorage.setItem("kooks-book-tab", tab); } catch (e) {}
