@@ -400,11 +400,12 @@ const PROP_MARKETS = [
   ...["QB", "RB", "WR", "TE", "K", "DEF"].map(pos => ({ box: "player-props", key: "top_player", pos, title: `Top ${pos}` })),
 ];
 function renderProps() {
-  const SHOW = 8, html = { "team-props": "", "player-props": "" };
+  const html = { "team-props": "", "player-props": "" };
   for (const m of PROP_MARKETS) {
     const all = props.filter(pr => pr.market === m.key && (m.pos ? pr.pos === m.pos : true));
     const offered = all.filter(pr => pr.listed && pr.in_pool).sort((a, b) => b.prob - a.prob);
     if (!offered.length) continue;
+    const SHOW = m.box === "team-props" ? Infinity : 8;  // team props list all 10 teams; player props start at 8
     const id = m.key + (m.pos || ""), open = expanded.has(id), shown = open ? offered : offered.slice(0, SHOW);
     const pr0 = all[0], closed = locked(pr0), final = all.some(pr => pr.final);
     const status = final ? `<span class="lock closed">Final</span>` : closed ? `<span class="lock closed">Locked</span>` : `<span class="lock">Locks ${when(pr0.locks_at)}</span>`;
