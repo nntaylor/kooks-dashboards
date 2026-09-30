@@ -153,6 +153,9 @@ tr.me { background: linear-gradient(90deg, var(--self-from), var(--self-to)); }
   <h2>Open bets<span class="info"><button type="button" class="info-btn" aria-label="About this section" aria-describedby="info-open">i</button><span role="tooltip" id="info-open" class="info-pop">Bets people have posted that nobody has taken yet. Taking one locks it in: you risk what the poster would win, to win their stake. You can cancel your own until someone takes it.</span></span><span class="count" id="open-count"></span></h2>
   <div class="card tablewrap" id="open"></div>
 
+  <h2>In progress<span class="info"><button type="button" class="info-btn" aria-label="About this section" aria-describedby="info-live">i</button><span role="tooltip" id="info-live" class="info-pop">Every bet that's been taken and is waiting on the games, for everyone in the league. Each side risks what the other would win, and the winner takes both. They settle once the week's scores are final.</span></span><span class="count" id="live-count"></span></h2>
+  <div class="card tablewrap" id="live"></div>
+
   <h2>My bets<span class="info"><button type="button" class="info-btn" aria-label="About this section" aria-describedby="info-mine">i</button><span role="tooltip" id="info-mine" class="info-pop">Every bet you've posted or taken, with its status. Settled bets show what you won or lost.</span></span></h2>
   <div class="card tablewrap" id="mine"></div>
 
@@ -253,7 +256,7 @@ function render() {
   const week = lines.length ? Math.max(...lines.map(l => l.week)) : null;
   $("wk").textContent = week ?? "–";
   renderBoard(lines.filter(l => l.week === week));
-  renderOpen(); renderMine(); renderLedger();
+  renderOpen(); renderLive(); renderMine(); renderLedger();
 }
 
 function renderAuth() {
@@ -341,6 +344,20 @@ function renderOpen() {
     }).join("") + `</tbody></table>`;
   box.querySelectorAll("[data-take]").forEach(x => x.onclick = () => takeBet(Number(x.dataset.take)));
   box.querySelectorAll("[data-cancel]").forEach(x => x.onclick = () => cancelBet(Number(x.dataset.cancel)));
+}
+
+function renderLive() {
+  const box = $("live");
+  if (!me) { box.innerHTML = `<div class="empty">${configured ? "Sign in to see bets in progress." : "—"}</div>`; $("live-count").textContent = ""; return; }
+  const live = bets.filter(b => b.status === "matched" && lineById(b.line_id));
+  $("live-count").textContent = live.length ? `${live.length} bet${live.length === 1 ? "" : "s"}` : "";
+  if (!live.length) { box.innerHTML = `<div class="empty">No bets in progress. Taken bets show up here until they settle.</div>`; return; }
+  box.innerHTML = `<table><thead><tr><th class="l">Week</th><th class="l">Posted by</th><th class="l">Their pick</th><th>Risk</th>` +
+    `<th class="l">Taken by</th><th class="l">Their pick</th><th>Risk</th></tr></thead><tbody>` +
+    live.map(b => `<tr class="${b.poster === me.id || b.taker === me.id ? "me" : ""}"><td class="l">${lineById(b.line_id).week}</td>` +
+      `<td class="l">${esc(nameOf(b.poster))}</td><td class="l pick">${esc(label(b.market, b.pick, b.point, b.odds))}</td><td>${money(b.stake)}</td>` +
+      `<td class="l">${esc(nameOf(b.taker))}</td><td class="l pick">${esc(otherSide(b))}</td><td>${money(b.taker_risk)}</td></tr>`).join("") +
+    `</tbody></table>`;
 }
 
 function renderMine() {
