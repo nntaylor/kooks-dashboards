@@ -136,6 +136,29 @@ tr.me { background: linear-gradient(90deg, var(--self-from), var(--self-to)); }
 .info-pop .findings { margin: 8px 0 0; padding-left: 16px; font-size: 12.5px; }
 .info-pop .findings li { margin: 5px 0; }
 .info-pop b { color: var(--text-primary); }
+/* tabs */
+.tabs { display: flex; gap: 6px; margin: 26px 0 0; border-bottom: 1px solid var(--border); }
+.tab { border: 0; background: transparent; color: var(--text-secondary); font: 700 15px var(--display); padding: 10px 16px;
+  border-bottom: 3px solid transparent; margin-bottom: -1px; cursor: pointer; }
+.tab:hover { color: var(--text-primary); }
+.tab[aria-selected="true"] { color: var(--cyan-text); border-bottom-color: var(--cyan); }
+.tab:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+/* prop cards */
+.props { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 14px; align-items: start; }
+.prop { padding: 14px 16px 12px; }
+.prop-h { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; margin-bottom: 6px; }
+.prop-h .t { font: 700 15px var(--display); }
+.prop-h .lock { color: var(--amber); font-size: 12px; font-weight: 600; }
+.prop-h .lock.closed { color: var(--text-muted); }
+.sel-row { display: grid; grid-template-columns: minmax(0, 1fr) 44px 88px; gap: 8px; align-items: center; padding: 5px 0;
+  border-bottom: 1px solid var(--border); }
+.sel-row:last-of-type { border-bottom: 0; }
+.sel-row .n { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sel-row .s { color: var(--text-muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sel-row .pc { color: var(--text-muted); font-size: 12px; text-align: right; }
+.sel-row .price { min-height: 38px; }
+.sel-row.won .n { color: var(--green); }
+.more-sel { margin-top: 8px; background: transparent; border: 0; color: var(--cyan-text); font: 600 12.5px var(--display); cursor: pointer; padding: 4px 0; }
 </style>
 </head>
 <body>
@@ -147,8 +170,23 @@ tr.me { background: linear-gradient(90deg, var(--self-from), var(--self-to)); }
   </div>
   <div class="notice" id="notice"></div>
 
+  <div class="tabs" role="tablist">
+    <button type="button" class="tab" role="tab" id="tab-btn-team" data-tab="team" aria-controls="tab-team">Team Bets</button>
+    <button type="button" class="tab" role="tab" id="tab-btn-player" data-tab="player" aria-controls="tab-player">Player Props</button>
+  </div>
+
+  <section id="tab-team" role="tabpanel" aria-labelledby="tab-btn-team">
   <h2>Board<span class="info"><button type="button" class="info-btn" aria-label="About this section" aria-describedby="info-board">i</button><span role="tooltip" id="info-board" class="info-pop wide">Fair lines from the <a href="contendathon.html">Contendathon</a>'s 20,000 simulated weeks, with no house cut. Pick a price to post a bet, and anyone in the league can take the other side. Every game locks at the week's first NFL kickoff, and bets settle on Sleeper's final scores.<ul class="findings"><li><b>Moneyline:</b> pick the winner. −150 means risk $150 to win $100; +150 means risk $100 to win $150. The person who takes the other side risks exactly what you'd win.</li><li><b>Spread and total:</b> even money, so both sides risk the same. A spread or total that lands exactly on the number is a push, and both stakes go back.</li><li>Stakes are $1–$100. You can cancel a bet until someone takes it; untaken bets expire at lock.</li><li>This is a scoreboard of who owes whom. No money moves through the site, so settle up however your group does.</li></ul></span></span></h2>
   <div class="games" id="board"></div>
+
+  <h2>Team props<span class="info"><button type="button" class="info-btn" aria-label="About this section" aria-describedby="info-tprops">i</button><span role="tooltip" id="info-tprops" class="info-pop">Back a team to finish the week with the most points in the league, or the fewest. Odds come from how often it happens in the 20,000 simulated weeks. Whoever takes your bet has "not them" at the mirrored price. A tie for the top (or bottom) is a push.</span></span></h2>
+  <div class="props" id="team-props"></div>
+  </section>
+
+  <section id="tab-player" role="tabpanel" aria-labelledby="tab-btn-player" hidden>
+  <h2>Top scorer by position<span class="info"><button type="button" class="info-btn" aria-label="About this section" aria-describedby="info-pprops">i</button><span role="tooltip" id="info-pprops" class="info-pop wide">Back a player to be the week's top scorer at his position, among every rostered Kooks player projected to play (bench included). Only players with at least a 1% chance are offered, but everyone in the pool counts. Whoever takes your bet has "not them" at the mirrored price. A tie for the top is a push, and so is a player who's ruled out before lock.</span></span></h2>
+  <div class="props" id="player-props"></div>
+  </section>
 
   <h2>Open bets<span class="info"><button type="button" class="info-btn" aria-label="About this section" aria-describedby="info-open">i</button><span role="tooltip" id="info-open" class="info-pop">Bets people have posted that nobody has taken yet. Taking one locks it in: you risk what the poster would win, to win their stake. You can cancel your own until someone takes it.</span></span><span class="count" id="open-count"></span></h2>
   <div class="card tablewrap" id="open"></div>
@@ -171,7 +209,10 @@ const SEASON = 2026;
 
 const configured = !SUPABASE_URL.startsWith("__");
 const sb = configured ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
-let me = null, profiles = {}, lines = [], bets = [], slip = null;
+let me = null, profiles = {}, lines = [], props = [], bets = [], slip = null, pslip = null;
+let tab = "team";
+try { if (localStorage.getItem("kooks-book-tab") === "player") tab = "player"; } catch (e) {}
+const expanded = new Set();  // prop markets showing every selection
 const $ = id => document.getElementById(id);
 
 // ---------- formatting ----------
@@ -182,6 +223,11 @@ const pts = v => v === 0 ? "PK" : (v > 0 ? "+" : "−") + Math.abs(v).toFixed(1)
 const profit = (stake, o) => Math.round((o > 0 ? stake * o / 100 : stake * 100 / -o) * 100) / 100;
 const nameOf = id => profiles[id]?.name || "Someone";  // from each person's Google account; not editable
 const lineById = id => lines.find(l => l.id === id);
+const propById = id => props.find(p => p.id === id);
+const targetOf = b => b.line_id ? lineById(b.line_id) : propById(b.prop_id);   // the game or prop a bet is on
+const tabOf = b => b.prop_id && propById(b.prop_id)?.market === "top_player" ? "player" : "team";
+const propWhat = pr => pr.market === "top_player" ? `top ${pr.pos}` : pr.market === "top_team" ? "top scorer" : "lowest scorer";
+const propLabel = (pr, yes, o) => `${pr.selection} ${yes ? "" : "not "}${propWhat(pr)} ${odds(o)}`;
 const locked = l => new Date(l.locks_at) <= new Date();
 const when = iso => new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
 function notify(msg, kind = "") { const n = $("notice"); n.className = "notice " + kind; n.textContent = msg; }
@@ -192,7 +238,11 @@ function label(market, pick, point, o) {
   if (market === "spread") return `${pick} ${pts(point)}`;
   return `${pick === "over" ? "Over" : "Under"} ${Number(point).toFixed(1)}`;
 }
+function betLabel(b) {
+  return b.prop_id ? propLabel(propById(b.prop_id), true, b.odds) : label(b.market, b.pick, b.point, b.odds);
+}
 function otherSide(b) {
+  if (b.prop_id) return propLabel(propById(b.prop_id), false, b.odds === 100 ? 100 : -b.odds);
   const l = lineById(b.line_id);
   if (b.market === "total") return label("total", b.pick === "over" ? "under" : "over", b.point);
   const other = b.pick === l.favorite ? l.underdog : l.favorite;
@@ -200,7 +250,7 @@ function otherSide(b) {
 }
 // my risk / my win on a bet, from whichever side I'm on
 function myTerms(b) {
-  const posted = label(b.market, b.pick, b.point, b.odds), other = otherSide(b);
+  const posted = betLabel(b), other = otherSide(b);
   return b.poster === me.id ? { side: posted, theirs: other, risk: b.stake, win: b.taker_risk }
                             : { side: other, theirs: posted, risk: b.taker_risk, win: b.stake };
 }
@@ -213,12 +263,20 @@ async function load() {
   const lq = await sb.from("lines").select("*").eq("season", SEASON).order("week");
   if (lq.error) { notify("Couldn't load the lines: " + lq.error.message, "err"); return; }
   lines = lq.data;
+  const week = lines.length ? Math.max(...lines.map(l => l.week)) : null;
+  const pq0 = week == null ? { data: [] } : await sb.from("props").select("*").eq("season", SEASON).eq("week", week);
+  props = pq0.error ? [] : pq0.data;  // no props table yet: the Player Props tab just stays empty
   if (me) {
     const [bq, pq] = await Promise.all([sb.from("bets").select("*").order("created_at", { ascending: false }),
                                         sb.from("profiles").select("id,name")]);
     if (bq.error || pq.error) { notify("Couldn't load bets: " + (bq.error || pq.error).message, "err"); return; }
     bets = bq.data;
     profiles = Object.fromEntries(pq.data.map(p => [p.id, p]));
+    const missing = [...new Set(bets.filter(b => b.prop_id && !propById(b.prop_id)).map(b => b.prop_id))];
+    if (missing.length) {  // props from earlier weeks that someone bet on
+      const mq = await sb.from("props").select("*").in("id", missing);
+      if (!mq.error) props = props.concat(mq.data);
+    }
   } else { bets = []; profiles = {}; }
   render();
 }
@@ -239,6 +297,12 @@ async function postBet() {
   if (await rpc("post_bet", { p_line: slip.line, p_market: slip.market, p_pick: slip.pick, p_stake: stake },
                 "Bet posted. It's on the board for anyone to take.")) slip = null, render();
 }
+async function postPropBet() {
+  const stake = Number($("pslip-stake").value);
+  if (!(stake >= 1 && stake <= 100)) { notify("Stake must be between $1 and $100.", "err"); return; }
+  if (await rpc("post_prop_bet", { p_prop: pslip.prop, p_stake: stake },
+                "Bet posted. It's on the board for anyone to take.")) pslip = null, render();
+}
 async function takeBet(id) {
   const b = bets.find(x => x.id === id);
   if (!confirm(`Take ${otherSide(b)} against ${nameOf(b.poster)}?\n\nYou risk ${money(b.taker_risk)} to win ${money(b.stake)}.`)) return;
@@ -255,7 +319,10 @@ function render() {
   if (!configured) { notify("The sportsbook isn't connected to its database yet."); }
   const week = lines.length ? Math.max(...lines.map(l => l.week)) : null;
   $("wk").textContent = week ?? "–";
+  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", String(t.dataset.tab === tab)));
+  $("tab-team").hidden = tab !== "team"; $("tab-player").hidden = tab !== "player";
   renderBoard(lines.filter(l => l.week === week));
+  renderProps();
   renderOpen(); renderLive(); renderMine(); renderLedger();
 }
 
@@ -327,17 +394,74 @@ function slipHtml(l) {
     `<button type="button" class="btn quiet" id="slip-close">Close</button></div></div>`;
 }
 
+const PROP_MARKETS = [
+  { box: "team-props", key: "top_team", title: "Top scoring team" },
+  { box: "team-props", key: "low_team", title: "Lowest scoring team" },
+  ...["QB", "RB", "WR", "TE", "K", "DEF"].map(pos => ({ box: "player-props", key: "top_player", pos, title: `Top ${pos}` })),
+];
+function renderProps() {
+  const SHOW = 8, html = { "team-props": "", "player-props": "" };
+  for (const m of PROP_MARKETS) {
+    const all = props.filter(pr => pr.market === m.key && (m.pos ? pr.pos === m.pos : true));
+    const offered = all.filter(pr => pr.listed && pr.in_pool).sort((a, b) => b.prob - a.prob);
+    if (!offered.length) continue;
+    const id = m.key + (m.pos || ""), open = expanded.has(id), shown = open ? offered : offered.slice(0, SHOW);
+    const pr0 = all[0], closed = locked(pr0), final = all.some(pr => pr.final);
+    const status = final ? `<span class="lock closed">Final</span>` : closed ? `<span class="lock closed">Locked</span>` : `<span class="lock">Locks ${when(pr0.locks_at)}</span>`;
+    const selIn = pslip && shown.some(pr => pr.id === pslip.prop);
+    html[m.box] += `<div class="card prop"><div class="prop-h"><span class="t">${m.title}</span>${status}</div>` +
+      shown.map(pr => `<div class="sel-row${pr.result === "won" ? " won" : ""}"><div><div class="n" title="${esc(pr.selection)}">${esc(pr.selection)}</div>` +
+        (pr.owner ? `<div class="s">${esc(pr.owner)}</div>` : "") + `</div>` +
+        `<span class="pc">${final ? (pr.score == null ? "" : Number(pr.score).toFixed(1)) : Math.round(pr.prob * 100) + "%"}</span>` +
+        `<button type="button" class="price${pslip && pslip.prop === pr.id ? " sel" : ""}" data-prop="${esc(pr.id)}"${closed ? " disabled" : ""}>` +
+        `<span class="o">${odds(pr.yes_ml)}</span></button></div>`).join("") +
+      (offered.length > SHOW ? `<button type="button" class="more-sel" data-more="${id}">${open ? "Show fewer" : `Show all ${offered.length}`}</button>` : "") +
+      (selIn ? propSlipHtml(propById(pslip.prop)) : "") + `</div>`;
+  }
+  $("team-props").innerHTML = html["team-props"] || `<div class="card empty">No team props posted yet. They go up with the week's lines.</div>`;
+  $("player-props").innerHTML = html["player-props"] || `<div class="card empty">No player props posted yet. They go up with the week's lines.</div>`;
+  document.querySelectorAll("[data-prop]").forEach(b => b.onclick = () => {
+    pslip = pslip && pslip.prop === b.dataset.prop ? null : { prop: b.dataset.prop, stake: pslip?.stake ?? slip?.stake ?? 5 };
+    renderProps();
+  });
+  document.querySelectorAll("[data-more]").forEach(b => b.onclick = () => {
+    expanded.has(b.dataset.more) ? expanded.delete(b.dataset.more) : expanded.add(b.dataset.more); renderProps();
+  });
+  if (pslip && $("pslip-stake")) {
+    const upd = () => { pslip.stake = Number($("pslip-stake").value) || 0; $("pslip-calc").innerHTML = propSlipCalc(propById(pslip.prop)); };
+    $("pslip-stake").oninput = upd;
+    document.querySelectorAll(".pquick").forEach(q => q.onclick = () => { $("pslip-stake").value = q.dataset.v; upd(); });
+    $("pslip-post").onclick = me ? postPropBet : signIn;
+    $("pslip-close").onclick = () => { pslip = null; renderProps(); };
+  }
+}
+function propSlipCalc(pr) {
+  const s = pslip.stake;
+  if (!(s >= 1 && s <= 100)) return `<span class="muted">Enter a stake from $1 to $100.</span>`;
+  const w = profit(s, pr.yes_ml);
+  return `Risk <b>${money(s)}</b> to win <b class="win">${money(w)}</b><br>` +
+    `<span class="muted">Whoever takes ${esc(propLabel(pr, false, pr.no_ml))} risks ${money(w)} to win ${money(s)}.</span>`;
+}
+function propSlipHtml(pr) {
+  return `<div class="slip"><div class="pick">${esc(propLabel(pr, true, pr.yes_ml))}</div>` +
+    `<div class="row"><label class="f">Stake <input id="pslip-stake" class="stake" type="number" min="1" max="100" step="1" value="${pslip.stake}"></label>` +
+    [5, 10, 20].map(v => `<button type="button" class="btn quick pquick" data-v="${v}">$${v}</button>`).join("") + `</div>` +
+    `<div class="calc" id="pslip-calc">${propSlipCalc(pr)}</div>` +
+    `<div class="row"><button type="button" class="btn primary" id="pslip-post">${me ? "Post bet" : "Sign in with Google to bet"}</button>` +
+    `<button type="button" class="btn quiet" id="pslip-close">Close</button></div></div>`;
+}
+
 function renderOpen() {
   const box = $("open");
   if (!me) { box.innerHTML = `<div class="empty">${configured ? "Sign in to see and take open bets." : "—"}</div>`; $("open-count").textContent = ""; return; }
-  const open = bets.filter(b => b.status === "open" && lineById(b.line_id) && !locked(lineById(b.line_id)));
+  const open = bets.filter(b => b.status === "open" && targetOf(b) && !locked(targetOf(b)) && tabOf(b) === tab);
   $("open-count").textContent = open.length ? `${open.length} waiting` : "";
-  if (!open.length) { box.innerHTML = `<div class="empty">No open bets. Pick a price on the board to post one.</div>`; return; }
+  if (!open.length) { box.innerHTML = `<div class="empty">No open ${tab === "player" ? "player prop" : "team"} bets. Pick a price above to post one.</div>`; return; }
   box.innerHTML = `<table><thead><tr><th class="l">Posted by</th><th class="l">Their pick</th><th>They risk</th><th class="l">Other side</th><th>You risk</th><th>You win</th><th></th></tr></thead><tbody>` +
     open.map(b => {
-      const mine = b.poster === me.id, l = lineById(b.line_id);
+      const mine = b.poster === me.id;
       return `<tr><td class="l">${esc(nameOf(b.poster))}</td>` +
-        `<td class="l pick">${esc(label(b.market, b.pick, b.point, b.odds))}</td><td>${money(b.stake)}</td>` +
+        `<td class="l pick">${esc(betLabel(b))}</td><td>${money(b.stake)}</td>` +
         `<td class="l pick">${esc(otherSide(b))}</td>` +
         (mine ? `<td class="muted">—</td><td class="muted">—</td>` : `<td>${money(b.taker_risk)}</td><td class="pos">${money(b.stake)}</td>`) +
         `<td>${mine ? `<button class="btn quiet" type="button" data-cancel="${b.id}">Cancel</button>` : `<button class="btn primary" type="button" data-take="${b.id}">Take it</button>`}</td></tr>`;
@@ -349,13 +473,13 @@ function renderOpen() {
 function renderLive() {
   const box = $("live");
   if (!me) { box.innerHTML = `<div class="empty">${configured ? "Sign in to see bets in progress." : "—"}</div>`; $("live-count").textContent = ""; return; }
-  const live = bets.filter(b => b.status === "matched" && lineById(b.line_id));
+  const live = bets.filter(b => b.status === "matched" && targetOf(b) && tabOf(b) === tab);
   $("live-count").textContent = live.length ? `${live.length} bet${live.length === 1 ? "" : "s"}` : "";
-  if (!live.length) { box.innerHTML = `<div class="empty">No bets in progress. Taken bets show up here until they settle.</div>`; return; }
+  if (!live.length) { box.innerHTML = `<div class="empty">No ${tab === "player" ? "player prop" : "team"} bets in progress. Taken bets show up here until they settle.</div>`; return; }
   box.innerHTML = `<table><thead><tr><th class="l">Week</th><th class="l">Posted by</th><th class="l">Their pick</th><th>Risk</th>` +
     `<th class="l">Taken by</th><th class="l">Their pick</th><th>Risk</th></tr></thead><tbody>` +
-    live.map(b => `<tr class="${b.poster === me.id || b.taker === me.id ? "me" : ""}"><td class="l">${lineById(b.line_id).week}</td>` +
-      `<td class="l">${esc(nameOf(b.poster))}</td><td class="l pick">${esc(label(b.market, b.pick, b.point, b.odds))}</td><td>${money(b.stake)}</td>` +
+    live.map(b => `<tr class="${b.poster === me.id || b.taker === me.id ? "me" : ""}"><td class="l">${targetOf(b).week}</td>` +
+      `<td class="l">${esc(nameOf(b.poster))}</td><td class="l pick">${esc(betLabel(b))}</td><td>${money(b.stake)}</td>` +
       `<td class="l">${esc(nameOf(b.taker))}</td><td class="l pick">${esc(otherSide(b))}</td><td>${money(b.taker_risk)}</td></tr>`).join("") +
     `</tbody></table>`;
 }
@@ -363,11 +487,11 @@ function renderLive() {
 function renderMine() {
   const box = $("mine");
   if (!me) { box.innerHTML = `<div class="empty">${configured ? "Sign in to see your bets." : "—"}</div>`; return; }
-  const mine = bets.filter(b => (b.poster === me.id || b.taker === me.id) && lineById(b.line_id));
+  const mine = bets.filter(b => (b.poster === me.id || b.taker === me.id) && targetOf(b));
   if (!mine.length) { box.innerHTML = `<div class="empty">You haven't bet yet.</div>`; return; }
   box.innerHTML = `<table><thead><tr><th class="l">Week</th><th class="l">Against</th><th class="l">My pick</th><th class="l">Their pick</th><th class="l">Posted by</th><th>Risk</th><th>To win</th><th class="l">Status</th></tr></thead><tbody>` +
     mine.map(b => {
-      const t = myTerms(b), l = lineById(b.line_id);
+      const t = myTerms(b), l = targetOf(b);
       let st;
       if (b.status === "settled") {
         const won = (b.result === "poster") === (b.poster === me.id);
@@ -402,11 +526,17 @@ function renderLedger() {
 }
 
 // ---------- start ----------
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
+  tab = t.dataset.tab;
+  try { localStorage.setItem("kooks-book-tab", tab); } catch (e) {}
+  render();
+});
 if (sb) {
   sb.auth.onAuthStateChange((_event, session) => { me = session?.user ?? null; reload(); });
   sb.channel("book")
     .on("postgres_changes", { event: "*", schema: "public", table: "bets" }, reload)
     .on("postgres_changes", { event: "*", schema: "public", table: "lines" }, reload)
+    .on("postgres_changes", { event: "*", schema: "public", table: "props" }, reload)
     .subscribe();
   setInterval(() => { if (lines.some(l => !locked(l))) render(); }, 30000);  // flips games to Locked on time
 } else render();
