@@ -43,8 +43,7 @@ button { font: inherit; }
 .top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 14px 24px; }
 h1 { font: 800 clamp(34px, 6vw, 52px)/1 var(--display); letter-spacing: -.01em; margin: 0; }
 h1 .yr { color: var(--cyan-text); }
-.lede { color: var(--text-secondary); margin: 14px 0 0; max-width: 78ch; }
-h2 { font: 700 20px/1.25 var(--display); margin: 40px 0 12px; display: flex; align-items: baseline; gap: 10px; }
+h2 { position: relative; font: 700 20px/1.25 var(--display); margin: 40px 0 12px; display: flex; align-items: center; gap: 10px; }
 h2 .count { font: 500 13px var(--body); color: var(--text-muted); }
 .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px; padding: 18px; min-width: 0;
   box-shadow: 0 16px 40px rgb(0 0 0 / .35); }
@@ -62,8 +61,6 @@ h2 .count { font: 500 13px var(--body); color: var(--text-muted); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .who { color: var(--text-secondary); font-size: 13px; }
 .who b { color: var(--text-primary); }
-.profile { display: none; margin-top: 12px; gap: 10px; flex-wrap: wrap; align-items: end; }
-.profile.open { display: flex; }
 label.f { display: flex; flex-direction: column; gap: 5px; font: 600 11px var(--display); letter-spacing: .06em;
   text-transform: uppercase; color: var(--text-muted); }
 input, select { font: 500 14px var(--body); color: var(--text-primary); background: var(--surface); border: 1px solid var(--border);
@@ -126,8 +123,19 @@ td .sub { color: var(--text-muted); font-size: 12px; }
 tr.me { background: linear-gradient(90deg, var(--self-from), var(--self-to)); }
 .empty { color: var(--text-muted); padding: 6px 2px; }
 
-.foot { margin-top: 36px; color: var(--text-muted); font-size: 12.5px; max-width: 84ch; }
-.foot li { margin: 5px 0; }
+/* info tips, same as the contendathon's */
+.info { display: inline-flex; }
+.info-btn { width: 20px; height: 20px; padding: 0; border-radius: 50%; border: 1px solid var(--divider); background: transparent;
+  color: var(--text-secondary); font: 700 11px/1 var(--display); cursor: help; }
+.info-btn:hover, .info-btn:focus-visible { border-color: var(--cyan); color: var(--cyan-text); outline: none; }
+.info-pop { display: none; position: absolute; left: 0; top: calc(100% + 6px); width: min(480px, 100%); z-index: 5;
+  background: var(--surface-2); border: 1px solid var(--border); border-left: 3px solid var(--cyan); border-radius: 10px; padding: 11px 13px;
+  box-shadow: 0 14px 36px rgb(0 0 0 / .55); font: 400 13.5px/1.5 var(--body); color: var(--text-secondary); }
+.info-pop.wide { width: min(640px, 100%); }
+.info:hover .info-pop, .info:focus-within .info-pop { display: block; }
+.info-pop .findings { margin: 8px 0 0; padding-left: 16px; font-size: 12.5px; }
+.info-pop .findings li { margin: 5px 0; }
+.info-pop b { color: var(--text-primary); }
 </style>
 </head>
 <body>
@@ -137,34 +145,20 @@ tr.me { background: linear-gradient(90deg, var(--self-from), var(--self-to)); }
     <h1>Week <span id="wk">–</span> <span class="yr">Lines</span></h1>
     <div class="auth" id="auth"></div>
   </div>
-  <div class="profile" id="profile">
-    <label class="f">Display name <input id="pf-name" maxlength="40"></label>
-    <label class="f">Your Kooks team <select id="pf-team"><option value="">—</option></select></label>
-    <button class="btn primary" id="pf-save" type="button">Save</button>
-    <button class="btn quiet" id="pf-cancel" type="button">Cancel</button>
-  </div>
-  <p class="lede">Fair lines from the <a href="contendathon.html">Contendathon</a>'s 20,000 simulated weeks, with no house cut. Pick a price
-    to post a bet, and anyone in the league can take the other side. Every game locks at the week's first NFL kickoff, and bets settle on Sleeper's final scores.</p>
   <div class="notice" id="notice"></div>
 
-  <h2>Board</h2>
+  <h2>Board<span class="info"><button type="button" class="info-btn" aria-label="About this section" aria-describedby="info-board">i</button><span role="tooltip" id="info-board" class="info-pop wide">Fair lines from the <a href="contendathon.html">Contendathon</a>'s 20,000 simulated weeks, with no house cut. Pick a price to post a bet, and anyone in the league can take the other side. Every game locks at the week's first NFL kickoff, and bets settle on Sleeper's final scores.<ul class="findings"><li><b>Moneyline:</b> pick the winner. −150 means risk $150 to win $100; +150 means risk $100 to win $150. The person who takes the other side risks exactly what you'd win.</li><li><b>Spread and total:</b> even money, so both sides risk the same. A spread or total that lands exactly on the number is a push, and both stakes go back.</li><li>Stakes are $1–$100. You can cancel a bet until someone takes it; untaken bets expire at lock.</li><li>This is a scoreboard of who owes whom. No money moves through the site, so settle up however your group does.</li></ul></span></span></h2>
   <div class="games" id="board"></div>
 
-  <h2>Open bets <span class="count" id="open-count"></span></h2>
+  <h2>Open bets<span class="info"><button type="button" class="info-btn" aria-label="About this section" aria-describedby="info-open">i</button><span role="tooltip" id="info-open" class="info-pop">Bets people have posted that nobody has taken yet. Taking one locks it in: you risk what the poster would win, to win their stake. You can cancel your own until someone takes it.</span></span><span class="count" id="open-count"></span></h2>
   <div class="card tablewrap" id="open"></div>
 
-  <h2>My bets</h2>
+  <h2>My bets<span class="info"><button type="button" class="info-btn" aria-label="About this section" aria-describedby="info-mine">i</button><span role="tooltip" id="info-mine" class="info-pop">Every bet you've posted or taken, with its status. Settled bets show what you won or lost.</span></span></h2>
   <div class="card tablewrap" id="mine"></div>
 
-  <h2>Standings</h2>
+  <h2>Standings<span class="info"><button type="button" class="info-btn" aria-label="About this section" aria-describedby="info-ledger">i</button><span role="tooltip" id="info-ledger" class="info-pop">Everyone's record and net winnings on settled bets. At risk now is the money in matched bets that haven't settled yet. Names come from each person's Google account.</span></span></h2>
   <div class="card tablewrap" id="ledger"></div>
 
-  <ul class="foot">
-    <li><b>Moneyline:</b> pick the winner. −150 means risk $150 to win $100; +150 means risk $100 to win $150. The person who takes the other side risks exactly what you'd win.</li>
-    <li><b>Spread and total:</b> even money, so both sides risk the same. A spread or total that lands exactly on the number is a push, and both stakes go back.</li>
-    <li>Stakes are $1–$100. You can cancel a bet until someone takes it; untaken bets expire at lock.</li>
-    <li>This is a scoreboard of who owes whom. No money moves through the site, so settle up however your group does.</li>
-  </ul>
 </main>
 <script>
 // Supabase project (the anon key is designed to be public; access rules live in the database)
@@ -183,7 +177,7 @@ const money = v => "$" + Number(v).toFixed(2);
 const odds = o => o === 100 ? "EVEN" : (o > 0 ? "+" : "−") + Math.abs(o);
 const pts = v => v === 0 ? "PK" : (v > 0 ? "+" : "−") + Math.abs(v).toFixed(1);
 const profit = (stake, o) => Math.round((o > 0 ? stake * o / 100 : stake * 100 / -o) * 100) / 100;
-const nameOf = id => profiles[id] ? profiles[id].name + (profiles[id].team ? ` (${profiles[id].team})` : "") : "Someone";
+const nameOf = id => profiles[id]?.name || "Someone";  // from each person's Google account; not editable
 const lineById = id => lines.find(l => l.id === id);
 const locked = l => new Date(l.locks_at) <= new Date();
 const when = iso => new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
@@ -217,7 +211,7 @@ async function load() {
   lines = lq.data;
   if (me) {
     const [bq, pq] = await Promise.all([sb.from("bets").select("*").order("created_at", { ascending: false }),
-                                        sb.from("profiles").select("id,name,team")]);
+                                        sb.from("profiles").select("id,name")]);
     if (bq.error || pq.error) { notify("Couldn't load bets: " + (bq.error || pq.error).message, "err"); return; }
     bets = bq.data;
     profiles = Object.fromEntries(pq.data.map(p => [p.id, p]));
@@ -250,13 +244,6 @@ async function cancelBet(id) {
   if (!confirm("Cancel this bet? It hasn't been taken yet.")) return;
   rpc("cancel_bet", { p_bet: id }, "Bet cancelled.");
 }
-async function saveProfile() {
-  const name = $("pf-name").value.trim();
-  if (!name) { notify("Pick a display name.", "err"); return; }
-  const { error } = await sb.from("profiles").update({ name, team: $("pf-team").value || null }).eq("id", me.id);
-  if (error) { notify("Couldn't save: " + error.message, "err"); return; }
-  $("profile").classList.remove("open"); notify("Saved.", "ok"); load();
-}
 
 // ---------- render ----------
 function render() {
@@ -276,15 +263,8 @@ function renderAuth() {
     $("signin").onclick = signIn; return;
   }
   a.innerHTML = `<span class="who">Signed in as <b>${esc(nameOf(me.id))}</b></span>` +
-    `<button class="btn quiet" id="edit" type="button">Edit name</button><button class="btn quiet" id="signout" type="button">Sign out</button>`;
+    `<button class="btn quiet" id="signout" type="button">Sign out</button>`;
   $("signout").onclick = () => sb.auth.signOut();
-  $("edit").onclick = () => {
-    const p = profiles[me.id] || {};
-    const teams = [...new Set(lines.flatMap(l => [l.favorite, l.underdog]))].sort((x, y) => x.localeCompare(y));
-    $("pf-team").innerHTML = `<option value="">—</option>` + teams.map(t => `<option>${esc(t)}</option>`).join("");
-    $("pf-name").value = p.name || ""; $("pf-team").value = p.team || "";
-    $("profile").classList.toggle("open");
-  };
 }
 
 function priceBtn(l, market, pick, top, bottom) {
