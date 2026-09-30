@@ -243,7 +243,7 @@ async function postBet() {
 }
 async function takeBet(id) {
   const b = bets.find(x => x.id === id);
-  if (!confirm(`Take ${otherSide(b)} against ${nameOf(b.poster)}?\n\nYou risk ${money(b.taker_risk)} to win ${money(b.stake)} (payout ${money(b.taker_risk + b.stake)}).`)) return;
+  if (!confirm(`Take ${otherSide(b)} against ${nameOf(b.poster)}?\n\nYou risk ${money(b.taker_risk)} to win ${money(b.stake)}.`)) return;
   rpc("take_bet", { p_bet: id }, "You're on. Good luck.");
 }
 async function cancelBet(id) {
@@ -331,7 +331,7 @@ function slipCalc(l) {
   const s = slip.stake, o = slipOdds(l);
   if (!(s >= 1 && s <= 100)) return `<span class="muted">Enter a stake from $1 to $100.</span>`;
   const w = profit(s, o), mirror = { line_id: l.id, market: slip.market, pick: slip.pick, point: slipPoint(l), odds: o };
-  return `Risk <b>${money(s)}</b> to win <b class="win">${money(w)}</b> · payout <b>${money(s + w)}</b><br>` +
+  return `Risk <b>${money(s)}</b> to win <b class="win">${money(w)}</b><br>` +
     `<span class="muted">Whoever takes ${esc(otherSide(mirror))} risks ${money(w)} to win ${money(s)}.</span>`;
 }
 function slipHtml(l) {
