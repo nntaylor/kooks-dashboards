@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kooks Sportsbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+/* Sleeper dark theme, same tokens as contendathon_template.html. Dark only. */
+:root {
+  color-scheme: dark;
+  --surface-0: #05091d;
+  --surface: #0b1028;
+  --surface-1: #131b38;
+  --surface-2: #202635;
+  --border: #2d3650;
+  --divider: #4e586f;
+  --text-primary: #f0f2f6;
+  --text-secondary: #b7c5d4;
+  --text-muted: #8996aa;
+  --cyan: #00e1e0;
+  --cyan-text: #00fff9;
+  --amber: #ffab0e;
+  --red: #ff8075;
+  --green: #28e757;
+  --self-from: #093447; --self-to: #085463;
+  --display: 'Poppins', system-ui, sans-serif;
+  --body: 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--text-primary); font: 14px/1.5 var(--body); font-feature-settings: "tnum";
+  background: radial-gradient(900px 380px at 15% -80px, rgb(0 225 224 / .10), transparent 70%),
+              radial-gradient(700px 320px at 95% -60px, rgb(255 171 14 / .08), transparent 70%), var(--surface-0);
+  background-color: var(--surface-0); min-height: 100vh; }
+main { max-width: 1180px; margin: 0 auto; padding: 36px 16px 64px; }
+a { color: var(--cyan-text); }
+button { font: inherit; }
+
+.eyebrow { font: 600 12px/1 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--cyan-text); margin: 0 0 10px; }
+.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 14px 24px; }
+h1 { font: 800 clamp(34px, 6vw, 52px)/1 var(--display); letter-spacing: -.01em; margin: 0; }
+h1 .yr { color: var(--cyan-text); }
+.lede { color: var(--text-secondary); margin: 14px 0 0; max-width: 78ch; }
+h2 { font: 700 20px/1.25 var(--display); margin: 40px 0 12px; display: flex; align-items: baseline; gap: 10px; }
+h2 .count { font: 500 13px var(--body); color: var(--text-muted); }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px; padding: 18px; min-width: 0;
+  box-shadow: 0 16px 40px rgb(0 0 0 / .35); }
+.muted { color: var(--text-muted); }
+
+/* auth */
+.auth { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary); border-radius: 10px;
+  padding: 8px 14px; font: 600 13px var(--display); cursor: pointer; }
+.btn:hover { border-color: var(--cyan); }
+.btn:focus-visible, .price:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.btn.primary { background: var(--cyan); color: #05091d; border-color: var(--cyan); }
+.btn.primary:hover { background: var(--cyan-text); }
+.btn.quiet { background: transparent; color: var(--text-secondary); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.who { color: var(--text-secondary); font-size: 13px; }
+.who b { color: var(--text-primary); }
+.profile { display: none; margin-top: 12px; gap: 10px; flex-wrap: wrap; align-items: end; }
+.profile.open { display: flex; }
+label.f { display: flex; flex-direction: column; gap: 5px; font: 600 11px var(--display); letter-spacing: .06em;
+  text-transform: uppercase; color: var(--text-muted); }
+input, select { font: 500 14px var(--body); color: var(--text-primary); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 10px; min-width: 0; }
+
+.notice { margin-top: 18px; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border); border-left: 3px solid var(--amber);
+  background: var(--surface-1); color: var(--text-secondary); }
+.notice.err { border-left-color: var(--red); }
+.notice.ok { border-left-color: var(--green); }
+.notice:empty { display: none; }
+
+/* board */
+.games { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); gap: 14px; align-items: start; }
+.game { padding: 14px 16px 16px; }
+.game-h { display: flex; justify-content: space-between; gap: 10px; color: var(--text-muted); font-size: 12px; margin-bottom: 8px; }
+.game-h .lock { color: var(--amber); font-weight: 600; }
+.game-h .lock.closed { color: var(--text-muted); }
+.mkt { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 92px); gap: 6px 8px; align-items: center; }
+.mkt .hd { font: 600 11px var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); text-align: center; }
+.tm { min-width: 0; }
+.tm .n { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tm .s { color: var(--text-muted); font-size: 12px; }
+.tm .sc { color: var(--text-primary); font: 700 14px var(--display); }
+.price { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 46px; padding: 4px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; color: var(--text-primary); cursor: pointer; }
+.price:hover:not(:disabled) { border-color: var(--cyan); }
+.price .l { font-size: 12px; color: var(--text-secondary); }
+.price .o { font: 700 14px var(--display); color: var(--cyan-text); }
+.price.sel { background: linear-gradient(90deg, var(--self-from), var(--self-to)); border-color: var(--cyan); }
+.price:disabled { cursor: default; opacity: .5; }
+.offers { margin-top: 10px; font-size: 12px; color: var(--text-muted); }
+.offers b { color: var(--amber); }
+@media (max-width: 520px) { .mkt { grid-template-columns: minmax(0, 1fr) repeat(3, 74px); } }
+
+/* bet slip */
+.slip { margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--cyan); }
+.slip .pick { font: 700 15px var(--display); }
+.slip .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.slip .stake { width: 96px; }
+.slip .quick { padding: 6px 10px; }
+.slip .calc { margin-top: 10px; color: var(--text-secondary); }
+.slip .calc b { color: var(--text-primary); }
+.slip .calc .win { color: var(--green); }
+
+/* lists */
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 9px 10px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th { font: 600 11px var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+td { font: 500 13px var(--body); }
+th.l, td.l { text-align: left; }
+td.pick { font-weight: 600; }
+td .sub { color: var(--text-muted); font-size: 12px; }
+.chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font: 600 11px var(--display); border: 1px solid var(--border); color: var(--text-secondary); }
+.chip.open { color: var(--amber); border-color: var(--amber); }
+.chip.matched { color: var(--cyan-text); border-color: var(--cyan); }
+.chip.won { color: var(--green); border-color: var(--green); }
+.chip.lost { color: var(--red); border-color: var(--red); }
+.pos { color: var(--green); } .neg { color: var(--red); }
+tr.me { background: linear-gradient(90deg, var(--self-from), var(--self-to)); }
+.empty { color: var(--text-muted); padding: 6px 2px; }
+
+.foot { margin-top: 36px; color: var(--text-muted); font-size: 12.5px; max-width: 84ch; }
+.foot li { margin: 5px 0; }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">Kooks-R-Us · sportsbook</p>
+  <div class="top">
+    <h1>Week <span id="wk">–</span> <span class="yr">Lines</span></h1>
+    <div class="auth" id="auth"></div>
+  </div>
+  <div class="profile" id="profile">
+    <label class="f">Display name <input id="pf-name" maxlength="40"></label>
+    <label class="f">Your Kooks team <select id="pf-team"><option value="">—</option></select></label>
+    <button class="btn primary" id="pf-save" type="button">Save</button>
+    <button class="btn quiet" id="pf-cancel" type="button">Cancel</button>
+  </div>
+  <p class="lede">Fair lines from the <a href="contendathon.html">Contendathon</a>'s 20,000 simulated weeks, with no house cut. Pick a price
+    to post a bet, and anyone in the league can take the other side. Every game locks at the week's first NFL kickoff, and bets settle on Sleeper's final scores.</p>
+  <div class="notice" id="notice"></div>
+
+  <h2>Board</h2>
+  <div class="games" id="board"></div>
+
+  <h2>Open bets <span class="count" id="open-count"></span></h2>
+  <div class="card tablewrap" id="open"></div>
+
+  <h2>My bets</h2>
+  <div class="card tablewrap" id="mine"></div>
+
+  <h2>Standings</h2>
+  <div class="card tablewrap" id="ledger"></div>
+
+  <ul class="foot">
+    <li><b>Moneyline:</b> pick the winner. −150 means risk $150 to win $100; +150 means risk $100 to win $150. The person who takes the other side risks exactly what you'd win.</li>
+    <li><b>Spread and total:</b> even money, so both sides risk the same. A spread or total that lands exactly on the number is a push, and both stakes go back.</li>
+    <li>Stakes are $1–$100. You can cancel a bet until someone takes it; untaken bets expire at lock.</li>
+    <li>This is a scoreboard of who owes whom. No money moves through the site, so settle up however your group does.</li>
+  </ul>
+</main>
+<script>
+// Supabase project (the anon key is designed to be public; access rules live in the database)
+const SUPABASE_URL = "https://qrscinnfjzkbqcbxbgih.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_s8r1pyKf5ozI56gTfNsZGA_YejmsB-4";
+const SEASON = 2026;
+
+const configured = !SUPABASE_URL.startsWith("__");
+const sb = configured ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+let me = null, profiles = {}, lines = [], bets = [], slip = null;
+const $ = id => document.getElementById(id);
+
+// ---------- formatting ----------
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const money = v => "$" + Number(v).toFixed(2);
+const odds = o => o === 100 ? "EVEN" : (o > 0 ? "+" : "−") + Math.abs(o);
+const pts = v => v === 0 ? "PK" : (v > 0 ? "+" : "−") + Math.abs(v).toFixed(1);
+const profit = (stake, o) => Math.round((o > 0 ? stake * o / 100 : stake * 100 / -o) * 100) / 100;
+const nameOf = id => profiles[id] ? profiles[id].name + (profiles[id].team ? ` (${profiles[id].team})` : "") : "Someone";
+const lineById = id => lines.find(l => l.id === id);
+const locked = l => new Date(l.locks_at) <= new Date();
+const when = iso => new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
+function notify(msg, kind = "") { const n = $("notice"); n.className = "notice " + kind; n.textContent = msg; }
+
+// what a pick reads as, and the other side of it
+function label(market, pick, point, o) {
+  if (market === "ml") return `${pick} ${odds(o)}`;
+  if (market === "spread") return `${pick} ${pts(point)}`;
+  return `${pick === "over" ? "Over" : "Under"} ${Number(point).toFixed(1)}`;
+}
+function otherSide(b) {
+  const l = lineById(b.line_id);
+  if (b.market === "total") return label("total", b.pick === "over" ? "under" : "over", b.point);
+  const other = b.pick === l.favorite ? l.underdog : l.favorite;
+  return b.market === "ml" ? label("ml", other, null, b.odds === 100 ? 100 : -b.odds) : label("spread", other, -b.point);
+}
+// my risk / my win on a bet, from whichever side I'm on
+function myTerms(b) {
+  return b.poster === me.id ? { side: label(b.market, b.pick, b.point, b.odds), risk: b.stake, win: b.taker_risk }
+                            : { side: otherSide(b), risk: b.taker_risk, win: b.stake };
+}
+
+// ---------- data ----------
+let reloadTimer = null;
+const reload = () => { clearTimeout(reloadTimer); reloadTimer = setTimeout(load, 250); };
+async function load() {
+  if (!sb) { render(); return; }
+  const lq = await sb.from("lines").select("*").eq("season", SEASON).order("week");
+  if (lq.error) { notify("Couldn't load the lines: " + lq.error.message, "err"); return; }
+  lines = lq.data;
+  if (me) {
+    const [bq, pq] = await Promise.all([sb.from("bets").select("*").order("created_at", { ascending: false }),
+                                        sb.from("profiles").select("id,name,team")]);
+    if (bq.error || pq.error) { notify("Couldn't load bets: " + (bq.error || pq.error).message, "err"); return; }
+    bets = bq.data;
+    profiles = Object.fromEntries(pq.data.map(p => [p.id, p]));
+  } else { bets = []; profiles = {}; }
+  render();
+}
+
+// ---------- actions ----------
+async function signIn() {
+  const { error } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + location.pathname } });
+  if (error) notify("Sign-in failed: " + error.message, "err");
+}
+async function rpc(fn, args, ok) {
+  const { error } = await sb.rpc(fn, args);
+  if (error) { notify(error.message, "err"); return false; }
+  notify(ok, "ok"); await load(); return true;
+}
+async function postBet() {
+  const stake = Number($("slip-stake").value);
+  if (!(stake >= 1 && stake <= 100)) { notify("Stake must be between $1 and $100.", "err"); return; }
+  if (await rpc("post_bet", { p_line: slip.line, p_market: slip.market, p_pick: slip.pick, p_stake: stake },
+                "Bet posted. It's on the board for anyone to take.")) slip = null, render();
+}
+async function takeBet(id) {
+  const b = bets.find(x => x.id === id);
+  if (!confirm(`Take ${otherSide(b)} against ${nameOf(b.poster)}?\n\nYou risk ${money(b.taker_risk)} to win ${money(b.stake)} (payout ${money(b.taker_risk + b.stake)}).`)) return;
+  rpc("take_bet", { p_bet: id }, "You're on. Good luck.");
+}
+async function cancelBet(id) {
+  if (!confirm("Cancel this bet? It hasn't been taken yet.")) return;
+  rpc("cancel_bet", { p_bet: id }, "Bet cancelled.");
+}
+async function saveProfile() {
+  const name = $("pf-name").value.trim();
+  if (!name) { notify("Pick a display name.", "err"); return; }
+  const { error } = await sb.from("profiles").update({ name, team: $("pf-team").value || null }).eq("id", me.id);
+  if (error) { notify("Couldn't save: " + error.message, "err"); return; }
+  $("profile").classList.remove("open"); notify("Saved.", "ok"); load();
+}
+
+// ---------- render ----------
+function render() {
+  renderAuth();
+  if (!configured) { notify("The sportsbook isn't connected to its database yet."); }
+  const week = lines.length ? Math.max(...lines.map(l => l.week)) : null;
+  $("wk").textContent = week ?? "–";
+  renderBoard(lines.filter(l => l.week === week));
+  renderOpen(); renderMine(); renderLedger();
+}
+
+function renderAuth() {
+  const a = $("auth");
+  if (!configured) { a.innerHTML = ""; return; }
+  if (!me) {
+    a.innerHTML = `<button class="btn primary" id="signin" type="button">Sign in with Google</button>`;
+    $("signin").onclick = signIn; return;
+  }
+  a.innerHTML = `<span class="who">Signed in as <b>${esc(nameOf(me.id))}</b></span>` +
+    `<button class="btn quiet" id="edit" type="button">Edit name</button><button class="btn quiet" id="signout" type="button">Sign out</button>`;
+  $("signout").onclick = () => sb.auth.signOut();
+  $("edit").onclick = () => {
+    const p = profiles[me.id] || {};
+    const teams = [...new Set(lines.flatMap(l => [l.favorite, l.underdog]))].sort((x, y) => x.localeCompare(y));
+    $("pf-team").innerHTML = `<option value="">—</option>` + teams.map(t => `<option>${esc(t)}</option>`).join("");
+    $("pf-name").value = p.name || ""; $("pf-team").value = p.team || "";
+    $("profile").classList.toggle("open");
+  };
+}
+
+function priceBtn(l, market, pick, top, bottom) {
+  const sel = slip && slip.line === l.id && slip.market === market && slip.pick === pick;
+  return `<button type="button" class="price${sel ? " sel" : ""}" data-line="${esc(l.id)}" data-market="${market}" data-pick="${esc(pick)}"` +
+    `${locked(l) ? " disabled" : ""}><span class="l">${top}</span><span class="o">${bottom}</span></button>`;
+}
+
+function renderBoard(games) {
+  const board = $("board");
+  if (!games.length) { board.innerHTML = `<div class="card empty">No lines posted yet. They go up after each weekly update.</div>`; return; }
+  board.innerHTML = games.map(l => {
+    const closed = locked(l), open = bets.filter(b => b.line_id === l.id && b.status === "open").length;
+    const status = l.final ? `<span class="lock closed">Final</span>` : closed ? `<span class="lock closed">Locked</span>` : `<span class="lock">Locks ${when(l.locks_at)}</span>`;
+    const team = (t, proj, win, score) => `<div class="tm"><div class="n" title="${esc(t)}">${esc(t)}</div>` +
+      `<div class="s">${l.final ? `<span class="sc">${Number(score).toFixed(2)}</span>` : `avg ${Number(proj).toFixed(1)} · ${Math.round(win * 100)}% to win`}</div></div>`;
+    return `<div class="card game"><div class="game-h"><span>Week ${l.week}</span>${status}</div>` +
+      `<div class="mkt"><span></span><span class="hd">Spread</span><span class="hd">Total</span><span class="hd">Moneyline</span>` +
+      team(l.favorite, l.fav_proj, l.fav_win, l.fav_score) +
+      priceBtn(l, "spread", l.favorite, pts(-l.spread), "EVEN") + priceBtn(l, "total", "over", "O " + Number(l.total).toFixed(1), "EVEN") +
+      priceBtn(l, "ml", l.favorite, "&nbsp;", odds(l.fav_ml)) +
+      team(l.underdog, l.dog_proj, 1 - l.fav_win, l.dog_score) +
+      priceBtn(l, "spread", l.underdog, pts(l.spread), "EVEN") + priceBtn(l, "total", "under", "U " + Number(l.total).toFixed(1), "EVEN") +
+      priceBtn(l, "ml", l.underdog, "&nbsp;", odds(l.dog_ml)) + `</div>` +
+      (open ? `<div class="offers"><b>${open}</b> open bet${open === 1 ? "" : "s"} on this game, below</div>` : "") +
+      (slip && slip.line === l.id ? slipHtml(l) : "") + `</div>`;
+  }).join("");
+  board.querySelectorAll(".price").forEach(b => b.onclick = () => {
+    const same = slip && slip.line === b.dataset.line && slip.market === b.dataset.market && slip.pick === b.dataset.pick;
+    slip = same ? null : { line: b.dataset.line, market: b.dataset.market, pick: b.dataset.pick, stake: slip?.stake ?? 5 };
+    renderBoard(games);
+  });
+  if (slip && $("slip-stake")) {
+    const upd = () => { slip.stake = Number($("slip-stake").value) || 0; $("slip-calc").innerHTML = slipCalc(lineById(slip.line)); };
+    $("slip-stake").oninput = upd;
+    board.querySelectorAll(".quick").forEach(q => q.onclick = () => { $("slip-stake").value = q.dataset.v; upd(); });
+    $("slip-post").onclick = me ? postBet : signIn;
+    $("slip-close").onclick = () => { slip = null; renderBoard(games); };
+  }
+}
+function slipOdds(l) { return slip.market === "ml" ? (slip.pick === l.favorite ? l.fav_ml : l.dog_ml) : 100; }
+function slipPoint(l) { return slip.market === "total" ? l.total : slip.pick === l.favorite ? -l.spread : l.spread; }
+function slipCalc(l) {
+  const s = slip.stake, o = slipOdds(l);
+  if (!(s >= 1 && s <= 100)) return `<span class="muted">Enter a stake from $1 to $100.</span>`;
+  const w = profit(s, o), mirror = { line_id: l.id, market: slip.market, pick: slip.pick, point: slipPoint(l), odds: o };
+  return `Risk <b>${money(s)}</b> to win <b class="win">${money(w)}</b> · payout <b>${money(s + w)}</b><br>` +
+    `<span class="muted">Whoever takes ${esc(otherSide(mirror))} risks ${money(w)} to win ${money(s)}.</span>`;
+}
+function slipHtml(l) {
+  return `<div class="slip"><div class="pick">${esc(label(slip.market, slip.pick, slipPoint(l), slipOdds(l)))}</div>` +
+    `<div class="row"><label class="f">Stake <input id="slip-stake" class="stake" type="number" min="1" max="100" step="1" value="${slip.stake}"></label>` +
+    [5, 10, 20].map(v => `<button type="button" class="btn quick" data-v="${v}">$${v}</button>`).join("") + `</div>` +
+    `<div class="calc" id="slip-calc">${slipCalc(l)}</div>` +
+    `<div class="row"><button type="button" class="btn primary" id="slip-post">${me ? "Post bet" : "Sign in with Google to bet"}</button>` +
+    `<button type="button" class="btn quiet" id="slip-close">Close</button></div></div>`;
+}
+
+function renderOpen() {
+  const box = $("open");
+  if (!me) { box.innerHTML = `<div class="empty">${configured ? "Sign in to see and take open bets." : "—"}</div>`; $("open-count").textContent = ""; return; }
+  const open = bets.filter(b => b.status === "open" && lineById(b.line_id) && !locked(lineById(b.line_id)));
+  $("open-count").textContent = open.length ? `${open.length} waiting` : "";
+  if (!open.length) { box.innerHTML = `<div class="empty">No open bets. Pick a price on the board to post one.</div>`; return; }
+  box.innerHTML = `<table><thead><tr><th class="l">Posted by</th><th class="l">Their pick</th><th>They risk</th><th class="l">Other side</th><th>You risk</th><th>You win</th><th></th></tr></thead><tbody>` +
+    open.map(b => {
+      const mine = b.poster === me.id, l = lineById(b.line_id);
+      return `<tr><td class="l">${esc(mine ? "You" : nameOf(b.poster))}<div class="sub">${esc(l.favorite)} vs ${esc(l.underdog)}</div></td>` +
+        `<td class="l pick">${esc(label(b.market, b.pick, b.point, b.odds))}</td><td>${money(b.stake)}</td>` +
+        `<td class="l pick">${esc(otherSide(b))}</td>` +
+        (mine ? `<td class="muted">—</td><td class="muted">—</td>` : `<td>${money(b.taker_risk)}</td><td class="pos">${money(b.stake)}</td>`) +
+        `<td>${mine ? `<button class="btn quiet" type="button" data-cancel="${b.id}">Cancel</button>` : `<button class="btn primary" type="button" data-take="${b.id}">Take it</button>`}</td></tr>`;
+    }).join("") + `</tbody></table>`;
+  box.querySelectorAll("[data-take]").forEach(x => x.onclick = () => takeBet(Number(x.dataset.take)));
+  box.querySelectorAll("[data-cancel]").forEach(x => x.onclick = () => cancelBet(Number(x.dataset.cancel)));
+}
+
+function renderMine() {
+  const box = $("mine");
+  if (!me) { box.innerHTML = `<div class="empty">${configured ? "Sign in to see your bets." : "—"}</div>`; return; }
+  const mine = bets.filter(b => (b.poster === me.id || b.taker === me.id) && lineById(b.line_id));
+  if (!mine.length) { box.innerHTML = `<div class="empty">You haven't bet yet.</div>`; return; }
+  box.innerHTML = `<table><thead><tr><th class="l">Week</th><th class="l">My pick</th><th class="l">Against</th><th>Risk</th><th>To win</th><th class="l">Status</th></tr></thead><tbody>` +
+    mine.map(b => {
+      const t = myTerms(b), l = lineById(b.line_id), opp = b.poster === me.id ? b.taker : b.poster;
+      let st;
+      if (b.status === "settled") {
+        const won = (b.result === "poster") === (b.poster === me.id);
+        st = b.result === "push" ? `<span class="chip">Push</span>` : won ? `<span class="chip won">Won +${money(t.win)}</span>` : `<span class="chip lost">Lost −${money(t.risk)}</span>`;
+      } else st = { open: `<span class="chip open">Waiting for a taker</span>`, matched: `<span class="chip matched">Matched</span>`,
+                    cancelled: `<span class="chip">Cancelled</span>`, expired: `<span class="chip">Expired, not taken</span>`,
+                    void: `<span class="chip" title="Matched after the game had started, so both stakes go back">Void</span>` }[b.status];
+      return `<tr><td class="l">${l.week}<div class="sub">${esc(l.favorite)} vs ${esc(l.underdog)}</div></td><td class="l pick">${esc(t.side)}</td>` +
+        `<td class="l">${opp ? esc(nameOf(opp)) : "—"}</td><td>${money(t.risk)}</td><td>${money(t.win)}</td><td class="l">${st}</td></tr>`;
+    }).join("") + `</tbody></table>`;
+}
+
+function renderLedger() {
+  const box = $("ledger");
+  if (!me) { box.innerHTML = `<div class="empty">${configured ? "Sign in to see the standings." : "—"}</div>`; return; }
+  const row = id => (rows[id] ??= { id, net: 0, w: 0, l: 0, p: 0, live: 0 });
+  const rows = {};
+  for (const b of bets) {
+    if (b.status === "matched") { row(b.poster).live += b.stake; row(b.taker).live += b.taker_risk; }
+    if (b.status !== "settled") continue;
+    const P = row(b.poster), T = row(b.taker);
+    if (b.result === "push") { P.p++; T.p++; }
+    else if (b.result === "poster") { P.net += b.taker_risk; T.net -= b.taker_risk; P.w++; T.l++; }
+    else { T.net += b.stake; P.net -= b.stake; T.w++; P.l++; }
+  }
+  const list = Object.values(rows).sort((a, b) => b.net - a.net);
+  if (!list.length) { box.innerHTML = `<div class="empty">No bets matched yet.</div>`; return; }
+  box.innerHTML = `<table><thead><tr><th class="l">Player</th><th>Record</th><th>Net</th><th>At risk now</th></tr></thead><tbody>` +
+    list.map(r => `<tr class="${r.id === me.id ? "me" : ""}"><td class="l">${esc(nameOf(r.id))}</td><td>${r.w}–${r.l}${r.p ? "–" + r.p : ""}</td>` +
+      `<td class="${r.net > 0.004 ? "pos" : r.net < -0.004 ? "neg" : ""}">${r.net > 0.004 ? "+" : r.net < -0.004 ? "−" : ""}${money(Math.abs(r.net))}</td>` +
+      `<td>${money(r.live)}</td></tr>`).join("") + `</tbody></table>`;
+}
+
+// ---------- start ----------
+if (sb) {
+  sb.auth.onAuthStateChange((_event, session) => { me = session?.user ?? null; reload(); });
+  sb.channel("book")
+    .on("postgres_changes", { event: "*", schema: "public", table: "bets" }, reload)
+    .on("postgres_changes", { event: "*", schema: "public", table: "lines" }, reload)
+    .subscribe();
+  setInterval(() => { if (lines.some(l => !locked(l))) render(); }, 30000);  // flips games to Locked on time
+} else render();
+</script>
+</body>
+</html>
