@@ -242,6 +242,11 @@ const propById = id => props.find(p => p.id === id);
 const targetOf = b => b.line_id ? lineById(b.line_id) : propById(b.prop_id);   // the game or prop a bet is on
 const tabOf = b => b.prop_id && propById(b.prop_id)?.market === "top_player" ? "player" : "team";
 const propWhat = pr => pr.market === "top_player" ? `top ${pr.pos}` : pr.market === "top_team" ? "top scorer" : "lowest scorer";
+const matchupOf = b => {  // the game (or prop market) a bet is on
+  if (!b.prop_id) { const l = lineById(b.line_id); return `${l.favorite} vs ${l.underdog}`; }
+  const pr = propById(b.prop_id);
+  return pr.market === "top_player" ? `Top ${pr.pos}` : pr.market === "top_team" ? "Top scoring team" : "Lowest scoring team";
+};
 const propLabel = (pr, yes, o) => `${pr.selection} ${yes ? "" : "not "}${propWhat(pr)} ${odds(o)}`;
 const locked = l => new Date(l.locks_at) <= new Date();
 const when = iso => new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
@@ -481,10 +486,10 @@ function renderOpen() {
   const open = bets.filter(b => b.status === "open" && targetOf(b) && !locked(targetOf(b)) && tabOf(b) === tab);
   $("open-count").textContent = open.length ? `${open.length} waiting` : "";
   if (!open.length) { box.innerHTML = `<div class="empty">No open ${tab === "player" ? "player prop" : "team"} bets. Pick a price above to post one.</div>`; return; }
-  box.innerHTML = `<table><thead><tr><th class="l">Posted by</th><th class="l">Their pick</th><th>They risk</th><th class="l">Other side</th><th>You risk</th><th>You win</th><th></th></tr></thead><tbody>` +
+  box.innerHTML = `<table><thead><tr><th class="l">Posted by</th><th class="l">Matchup</th><th class="l">Their pick</th><th>They risk</th><th class="l">Other side</th><th>You risk</th><th>You win</th><th></th></tr></thead><tbody>` +
     open.map(b => {
       const mine = b.poster === me.id;
-      return `<tr><td class="l">${esc(nameOf(b.poster))}</td>` +
+      return `<tr><td class="l">${esc(nameOf(b.poster))}</td><td class="l">${esc(matchupOf(b))}</td>` +
         `<td class="l pick">${esc(betLabel(b))}</td><td>${money(b.stake)}</td>` +
         `<td class="l pick">${esc(otherSide(b))}</td>` +
         (mine ? `<td class="muted">—</td><td class="muted">—</td>` : `<td>${money(b.taker_risk)}</td><td class="pos">${money(b.stake)}</td>`) +
